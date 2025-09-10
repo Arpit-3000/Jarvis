@@ -8,6 +8,8 @@
     "dev": "nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "insert-dummy": "node scripts/insertDummyData.js",
+    "insert-all-dummy": "node data/dummyData.js",
+    "insert-all": "node scripts/insertAllData.js",
     "test-email": "node scripts/testEmail.js"
   },
   "keywords": [

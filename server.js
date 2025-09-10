@@ -6,6 +6,9 @@ const config = require('./config/env');
 // Import routes
 const authRoutes = require('./routes/auth');
 const studentRoutes = require('./routes/student');
+const teacherRoutes = require('./routes/teacher');
+const adminRoutes = require('./routes/admin');
+const accountRoutes = require('./routes/account');
 
 const app = express();
 
@@ -20,6 +23,9 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/student', studentRoutes);
+app.use('/api/teacher', teacherRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/account', accountRoutes);
 
 // Basic route
 app.get('/', (req, res) => {

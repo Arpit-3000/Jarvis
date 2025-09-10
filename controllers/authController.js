@@ -1,4 +1,6 @@
 const Student = require('../models/Student');
+const Teacher = require('../models/Teacher');
+const Admin = require('../models/Admin');
 const OTP = require('../models/OTP');
 const { generateToken, verifyToken, extractToken } = require('../utils/jwt');
 const { sendSuccess, sendError, sendUnauthorized } = require('../utils/response');
@@ -6,7 +8,7 @@ const { sendOTPEmail, sendWelcomeEmail } = require('../services/emailService');
 const { generateOTP, getOTPExpirationTime, isOTPExpired } = require('../utils/otpGenerator');
 
 /**
- * Send OTP to student email
+ * Send OTP to user email (Student, Teacher, or Admin)
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
@@ -14,14 +16,32 @@ const sendOTP = async (req, res) => {
   try {
     const { email } = req.body;
 
-    // Check if student exists and is active
-    const student = await Student.findOne({ 
+    // Check if user exists in any collection
+    let user = await Student.findOne({ 
       email: email.toLowerCase(),
       isActive: true 
     }).select('-__v');
 
-    if (!student) {
-      return sendUnauthorized(res, 'Invalid credentials. Student not found or account deactivated.');
+    let userType = 'Student';
+    
+    if (!user) {
+      user = await Teacher.findOne({ 
+        email: email.toLowerCase(),
+        isActive: true 
+      }).select('-__v');
+      userType = 'Teacher';
+    }
+
+    if (!user) {
+      user = await Admin.findOne({ 
+        email: email.toLowerCase(),
+        isActive: true 
+      }).select('-__v');
+      userType = 'Admin';
+    }
+
+    if (!user) {
+      return sendUnauthorized(res, 'Invalid credentials. User not found or account deactivated.');
     }
 
     // Generate OTP
@@ -41,7 +61,7 @@ const sendOTP = async (req, res) => {
     await otp.save();
 
     // Send OTP email
-    const emailSent = await sendOTPEmail(email, otpCode, student.name);
+    const emailSent = await sendOTPEmail(email, otpCode, user.name);
 
     if (!emailSent) {
       return sendError(res, 500, 'Failed to send OTP email. Please try again.');
@@ -49,6 +69,7 @@ const sendOTP = async (req, res) => {
 
     sendSuccess(res, 200, 'OTP sent successfully to your email', {
       email: email,
+      userType: userType,
       expiresIn: '10 minutes'
     });
 
@@ -98,14 +119,32 @@ const verifyOTP = async (req, res) => {
       return sendUnauthorized(res, `Invalid OTP. ${3 - otpRecord.attempts} attempts remaining.`);
     }
 
-    // Get student details
-    const student = await Student.findOne({ 
+    // Get user details from appropriate collection
+    let user = await Student.findOne({ 
       email: email.toLowerCase(),
       isActive: true 
     }).select('-__v');
 
-    if (!student) {
-      return sendUnauthorized(res, 'Student not found or account deactivated.');
+    let userType = 'Student';
+    
+    if (!user) {
+      user = await Teacher.findOne({ 
+        email: email.toLowerCase(),
+        isActive: true 
+      }).select('-__v');
+      userType = 'Teacher';
+    }
+
+    if (!user) {
+      user = await Admin.findOne({ 
+        email: email.toLowerCase(),
+        isActive: true 
+      }).select('-__v');
+      userType = 'Admin';
+    }
+
+    if (!user) {
+      return sendUnauthorized(res, 'User not found or account deactivated.');
     }
 
     // Mark OTP as used
@@ -114,35 +153,72 @@ const verifyOTP = async (req, res) => {
 
     // Create JWT payload
     const payload = {
-      id: student._id,
-      email: student.email,
-      studentId: student.studentId,
-      name: student.name
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      userType: userType
     };
+
+    // Add specific ID based on user type
+    if (userType === 'Student') {
+      payload.studentId = user.studentId;
+    } else if (userType === 'Teacher') {
+      payload.teacherId = user.teacherId;
+    } else if (userType === 'Admin') {
+      payload.adminId = user.adminId;
+    }
 
     // Generate JWT token
     const token = generateToken(payload);
 
     // Send welcome email (optional, don't wait for it)
-    sendWelcomeEmail(email, student.name).catch(err => 
+    sendWelcomeEmail(email, user.name).catch(err => 
       console.error('Welcome email failed:', err)
     );
 
-    // Return success response with token and student info
+    // Determine role for frontend routing
+    let role = userType.toLowerCase(); // student, teacher, admin
+    
+    // For admins, use their specific role (Super Admin, Admin, etc.)
+    if (userType === 'Admin') {
+      role = user.role.toLowerCase().replace(' ', '_'); // super_admin, admin, moderator, staff
+    }
+
+    // Return success response with token and user info
     sendSuccess(res, 200, 'OTP verified successfully', {
       token,
-      student: {
-        id: student._id,
-        name: student.name,
-        email: student.email,
-        studentId: student.studentId,
-        rollNumber: student.rollNumber,
-        department: student.department,
-        branch: student.branch,
-        course: student.course,
-        year: student.year,
-        currentSemester: student.currentSemester,
-        phone: student.phone
+      email: user.email,
+      role: role,
+      userType: userType,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        ...(userType === 'Student' && {
+          studentId: user.studentId,
+          rollNumber: user.rollNumber,
+          department: user.department,
+          branch: user.branch,
+          course: user.course,
+          year: user.year,
+          currentSemester: user.currentSemester,
+          phone: user.phone
+        }),
+        ...(userType === 'Teacher' && {
+          teacherId: user.teacherId,
+          employeeId: user.employeeId,
+          department: user.department,
+          designation: user.designation,
+          phone: user.phone
+        }),
+        ...(userType === 'Admin' && {
+          adminId: user.adminId,
+          employeeId: user.employeeId,
+          role: user.role,
+          department: user.department,
+          designation: user.designation,
+          phone: user.phone
+        })
       }
     });
 
