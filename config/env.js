@@ -1,7 +1,10 @@
 const dotenv = require('dotenv');
 
-// Load environment variables
+// Load environment variables from config.env
 dotenv.config({ path: './config.env' });
+
+// Debug check
+console.log('Loaded JWT_SECRET:', process.env.JWT_SECRET);
 
 const config = {
   PORT: process.env.PORT || 5000,
@@ -9,14 +12,14 @@ const config = {
   JWT_SECRET: process.env.JWT_SECRET || 'fallback_secret_key',
   NODE_ENV: process.env.NODE_ENV || 'development',
   JWT_EXPIRE: process.env.JWT_EXPIRE || '24h',
-  
+
   // Email Configuration
   EMAIL_HOST: process.env.EMAIL_HOST || 'smtp.gmail.com',
   EMAIL_PORT: process.env.EMAIL_PORT || 587,
   EMAIL_USER: process.env.EMAIL_USER,
   EMAIL_PASS: process.env.EMAIL_PASS,
   EMAIL_FROM: process.env.EMAIL_FROM || 'IIITU Student Portal <noreply@iiitu.ac.in>',
-  
+
   // OTP Configuration
   OTP_EXPIRE_MINUTES: process.env.OTP_EXPIRE_MINUTES || 10,
   OTP_LENGTH: process.env.OTP_LENGTH || 6
@@ -30,13 +33,6 @@ requiredEnvVars.forEach(envVar => {
     console.error(`Missing required environment variable: ${envVar}`);
     process.exit(1);
   }
-});
-
-// Debug email configuration
-console.log('Email configuration loaded:', {
-  EMAIL_USER: process.env.EMAIL_USER,
-  EMAIL_PASS: process.env.EMAIL_PASS ? '***' : 'undefined',
-  EMAIL_FROM: process.env.EMAIL_FROM
 });
 
 module.exports = config;
