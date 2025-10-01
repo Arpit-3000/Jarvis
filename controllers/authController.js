@@ -765,6 +765,7 @@
 const Student = require('../models/Student');
 const Teacher = require('../models/Teacher');
 const Admin = require('../models/Admin');
+const NonTeachingStaff = require('../models/NonTeachingStaff');
 const OTP = require('../models/OTP');
 const { generateToken, verifyToken, extractToken } = require('../utils/jwt');
 const { sendSuccess, sendError, sendUnauthorized } = require('../utils/response');
@@ -807,6 +808,15 @@ const sendOTP = async (req, res) => {
       user = await Admin.findOne({ email: email.toLowerCase(), isActive: true }).select('-__v');
       if (!user) {
         return sendUnauthorized(res, 'Invalid credentials. Admin not found or account deactivated.');
+      }
+    } 
+    else if (normalizedRole === 'nonteaching' || normalizedRole === 'non_teaching') {
+      if (!teacherId) {
+        return sendError(res, 400, 'Staff ID is required for non-teaching staff login');
+      }
+      user = await NonTeachingStaff.findOne({ staffId: teacherId, email: email.toLowerCase(), isActive: true });
+      if (!user) {
+        return sendUnauthorized(res, 'Invalid Staff ID or Email mismatch.');
       }
     } 
     else {
@@ -855,7 +865,7 @@ const sendOTP = async (req, res) => {
  */
 const verifyOTP = async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const { email, otp, role: requestRole } = req.body;
 
     // Find the OTP record
     const otpRecord = await OTP.findOne({ 
@@ -888,28 +898,71 @@ const verifyOTP = async (req, res) => {
       return sendUnauthorized(res, `Invalid OTP. ${3 - otpRecord.attempts} attempts remaining.`);
     }
 
-    // Get user details from appropriate collection
-    let user = await Student.findOne({ 
-      email: email.toLowerCase(),
-      isActive: true 
-    }).select('-__v');
+    // Get user details from appropriate collection based on role
+    let user = null;
+    let userType = null;
 
-    let userType = 'Student';
-    
-    if (!user) {
+    const normalizedRole = requestRole?.toLowerCase();
+
+    if (normalizedRole === 'student') {
+      user = await Student.findOne({ 
+        email: email.toLowerCase(),
+        isActive: true 
+      }).select('-__v');
+      userType = 'Student';
+    } 
+    else if (normalizedRole === 'teacher') {
       user = await Teacher.findOne({ 
         email: email.toLowerCase(),
         isActive: true 
       }).select('-__v');
       userType = 'Teacher';
-    }
-
-    if (!user) {
+    } 
+    else if (normalizedRole === 'admin') {
       user = await Admin.findOne({ 
         email: email.toLowerCase(),
         isActive: true 
       }).select('-__v');
       userType = 'Admin';
+    } 
+    else if (normalizedRole === 'nonteaching' || normalizedRole === 'non_teaching') {
+      user = await NonTeachingStaff.findOne({ 
+        email: email.toLowerCase(),
+        isActive: true 
+      }).select('-__v');
+      userType = 'NonTeachingStaff';
+    } 
+    else {
+      // Fallback: try all collections if no role specified
+      user = await Student.findOne({ 
+        email: email.toLowerCase(),
+        isActive: true 
+      }).select('-__v');
+      userType = 'Student';
+      
+      if (!user) {
+        user = await Teacher.findOne({ 
+          email: email.toLowerCase(),
+          isActive: true 
+        }).select('-__v');
+        userType = 'Teacher';
+      }
+
+      if (!user) {
+        user = await Admin.findOne({ 
+          email: email.toLowerCase(),
+          isActive: true 
+        }).select('-__v');
+        userType = 'Admin';
+      }
+
+      if (!user) {
+        user = await NonTeachingStaff.findOne({ 
+          email: email.toLowerCase(),
+          isActive: true 
+        }).select('-__v');
+        userType = 'NonTeachingStaff';
+      }
     }
 
     if (!user) {
@@ -935,6 +988,8 @@ const verifyOTP = async (req, res) => {
       payload.teacherId = user.teacherId;
     } else if (userType === 'Admin') {
       payload.adminId = user.adminId;
+    } else if (userType === 'NonTeachingStaff') {
+      payload.staffId = user.staffId;
     }
 
     // Generate JWT token
@@ -946,18 +1001,23 @@ const verifyOTP = async (req, res) => {
     );
 
     // Determine role for frontend routing
-    let role = userType.toLowerCase(); // student, teacher, admin
+    let frontendRole = userType.toLowerCase(); // student, teacher, admin, nonteachingstaff
     
     // For admins, use their specific role (Super Admin, Admin, etc.)
     if (userType === 'Admin') {
-      role = user.role.toLowerCase().replace(' ', '_'); // super_admin, admin, moderator, staff
+      frontendRole = user.role.toLowerCase().replace(' ', '_'); // super_admin, admin, moderator, staff
+    }
+    
+    // For non-teaching staff, use their role
+    if (userType === 'NonTeachingStaff') {
+      frontendRole = user.role.toLowerCase().replace(' ', '_'); // hostel_warden, security_head, etc.
     }
 
     // Return success response with token and user info
     sendSuccess(res, 200, 'OTP verified successfully', {
       token,
       email: user.email,
-      role: role,
+      role: frontendRole,
       userType: userType,
       user: {
         id: user._id,
@@ -987,6 +1047,14 @@ const verifyOTP = async (req, res) => {
           department: user.department,
           designation: user.designation,
           phone: user.phone
+        }),
+        ...(userType === 'NonTeachingStaff' && {
+          staffId: user.staffId,
+          role: user.role,
+          department: user.department,
+          designation: user.designation,
+          phone: user.phone,
+          permissions: user.permissions
         })
       }
     });

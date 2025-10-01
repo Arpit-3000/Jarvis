@@ -10,7 +10,11 @@
     "insert-dummy": "node scripts/insertDummyData.js",
     "insert-all-dummy": "node data/dummyData.js",
     "insert-all": "node scripts/insertAllData.js",
-    "test-email": "node scripts/testEmail.js"
+    "test-email": "node scripts/testEmail.js",
+    "insert-staff": "node data/dummyNonTeachingStaff.js",
+    "test-leave-system": "node scripts/testLeaveFormSystem.js",
+    "test-verification-workflow": "node scripts/testVerificationWorkflow.js",
+    "test-new-apis": "node scripts/testNewAPIs.js"
   },
   "keywords": [
     "student",

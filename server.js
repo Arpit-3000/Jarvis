@@ -9,6 +9,8 @@ const studentRoutes = require('./routes/student');
 const teacherRoutes = require('./routes/teacher');
 const adminRoutes = require('./routes/admin');
 const accountRoutes = require('./routes/account');
+const leaveFormRoutes = require('./routes/leaveForm');
+const nonTeachingStaffRoutes = require('./routes/nonTeachingStaff');
 
 const app = express();
 
@@ -26,6 +28,8 @@ app.use('/api/student', studentRoutes);
 app.use('/api/teacher', teacherRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/account', accountRoutes);
+app.use('/api/leave-form', leaveFormRoutes);
+app.use('/api/non-teaching', nonTeachingStaffRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
