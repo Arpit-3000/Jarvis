@@ -15,12 +15,14 @@ const studentSchema = new mongoose.Schema({
     trim: true,
     match: [/^\d+@iiitu\.ac\.in$/, 'Email must be in format: rollnumber@iiitu.ac.in']
   },
+  
   studentId: {
     type: String,
     required: [true, 'Student ID is required'],
     unique: true,
     trim: true
   },
+
   rollNumber: {
     type: String,
     required: [true, 'Roll Number is required'],
@@ -127,6 +129,9 @@ const studentSchema = new mongoose.Schema({
     type: String,
     enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
   },
+  currentStatus: { type: String, enum: ['in','out'], default: 'in' }, // campus default 'in'
+  lastGateLog: { type: mongoose.Schema.Types.ObjectId, ref: 'GateLog' },
+  
   
   // System Fields
   isActive: {

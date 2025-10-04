@@ -1,0 +1,226 @@
+{
+  "info": {
+    "name": "Gate System API Collection",
+    "description": "Complete collection for testing the Gate In-Out System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "studentToken",
+      "value": "YOUR_STUDENT_TOKEN_HERE",
+      "type": "string"
+    },
+    {
+      "key": "guardToken",
+      "value": "YOUR_GUARD_TOKEN_HERE",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "YOUR_ADMIN_TOKEN_HERE",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Student - Generate QR Pass",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"destination\": \"Library\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/gate/generate",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "gate", "generate"]
+        }
+      }
+    },
+    {
+      "name": "Student - Get Current Status",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/gate/status",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "gate", "status"]
+        }
+      }
+    },
+    {
+      "name": "Student - Get Gate History",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/gate/my-logs?page=1&limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "gate", "my-logs"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Guard - Scan QR Pass",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{guardToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"QR_JWT_TOKEN_FROM_GENERATE\",\n  \"remarks\": \"Student verified successfully\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/gate/scan",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "gate", "scan"]
+        }
+      }
+    },
+    {
+      "name": "Guard - Get Active Students",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{guardToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/gate/active?page=1&limit=50",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "gate", "active"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "50"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Admin - Get All Gate Logs",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/gate/logs?page=1&limit=20",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "gate", "logs"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "20"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Admin - Manual Gate Override",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"studentId\": \"STUDENT_OBJECT_ID\",\n  \"action\": \"exit\",\n  \"destination\": \"Emergency\",\n  \"remarks\": \"Manual override by admin\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/gate/manual-override",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "gate", "manual-override"]
+        }
+      }
+    }
+  ]
+}

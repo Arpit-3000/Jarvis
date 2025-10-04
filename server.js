@@ -11,6 +11,7 @@ const adminRoutes = require('./routes/admin');
 const accountRoutes = require('./routes/account');
 const leaveFormRoutes = require('./routes/leaveForm');
 const nonTeachingStaffRoutes = require('./routes/nonTeachingStaff');
+const gateRoutes = require('./routes/gateRoutes');
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/account', accountRoutes);
 app.use('/api/leave-form', leaveFormRoutes);
 app.use('/api/non-teaching', nonTeachingStaffRoutes);
+app.use('/api/gate', gateRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
@@ -71,8 +73,43 @@ app.use('*', (req, res) => {
 
 const PORT = config.PORT;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
   console.log(`📊 Environment: ${config.NODE_ENV}`);
   console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+});
+
+// Handle port already in use error
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use!`);
+    console.log(`💡 Solutions:`);
+    console.log(`   1. Run: npm run kill-port`);
+    console.log(`   2. Run: npm run start:clean`);
+    console.log(`   3. Or use a different port: PORT=5001 npm start`);
+    console.log(`   4. Or kill the process manually:`);
+    console.log(`      netstat -ano | findstr :${PORT}`);
+    console.log(`      taskkill /PID <PID> /F`);
+    process.exit(1);
+  } else {
+    console.error('Server error:', err);
+    process.exit(1);
+  }
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('\n🛑 Shutting down server gracefully...');
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGTERM', () => {
+  console.log('\n🛑 Received SIGTERM, shutting down gracefully...');
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
 });

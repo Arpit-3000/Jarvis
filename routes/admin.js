@@ -35,4 +35,8 @@ router.get('/teachers', adminAuth, getAllTeachers);
 // @access  Private (Admin)
 router.get('/accounts', adminAuth, getAllAccounts);
 
+// Note: Gate-related endpoints moved to /api/gate/*
+// Use /api/gate/logs for viewing all gate logs
+// Use /api/gate/manual-override for manual gate operations
+
 module.exports = router;

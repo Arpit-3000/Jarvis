@@ -22,7 +22,10 @@ const config = {
 
   // OTP Configuration
   OTP_EXPIRE_MINUTES: process.env.OTP_EXPIRE_MINUTES || 10,
-  OTP_LENGTH: process.env.OTP_LENGTH || 6
+  OTP_LENGTH: process.env.OTP_LENGTH || 6,
+
+  // Gate System Configuration
+  QR_EXPIRE_MINUTES: process.env.QR_EXPIRE_MINUTES || 10
 };
 
 // Validate required environment variables
