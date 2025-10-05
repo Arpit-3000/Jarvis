@@ -5,7 +5,7 @@ const Student = require('../models/Student');
 const { sendSuccess, sendError, sendUnauthorized } = require('../utils/response');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret';
-const QR_EXPIRE_MINUTES = parseInt(process.env.QR_EXPIRE_MINUTES || '10', 10);
+const QR_EXPIRE_MINUTES = parseInt(process.env.QR_EXPIRE_MINUTES || '5', 10);
 
 /**
  * Generate QR Pass for Gate Entry/Exit
@@ -71,14 +71,16 @@ exports.generatePass = async (req, res) => {
       expiresAt: expiresAt
     });
 
-    // Generate QR code
+    // Generate QR code with better scanning compatibility
     const qrCodeDataUrl = await QRCode.toDataURL(token, {
-      width: 300,
-      margin: 2,
+      width: 400,
+      margin: 4,
       color: {
         dark: '#000000',
         light: '#FFFFFF'
-      }
+      },
+      errorCorrectionLevel: 'M',
+      type: 'image/png'
     });
 
     sendSuccess(res, 200, 'Gate pass generated successfully', {

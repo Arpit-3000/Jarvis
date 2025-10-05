@@ -40,6 +40,7 @@ const nonTeachingStaffSchema = new mongoose.Schema({
       'Hostel Warden', 
       'Security Head', 
       'Security Guard',
+      'Guard', // Add 'Guard' to handle existing database entries
       'Attendant',
       'Caretaker',
       'Administrative Staff', 

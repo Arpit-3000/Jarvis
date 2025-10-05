@@ -62,7 +62,7 @@ const leaveFormSchema = new mongoose.Schema({
   // Status and Approval
   status: {
     type: String,
-    enum: ['pending', 'verified_by_attendant', 'approved', 'rejected'],
+    enum: ['pending', 'verified_by_attendant', 'approved', 'rejected', 'cancelled'],
     default: 'pending'
   },
   

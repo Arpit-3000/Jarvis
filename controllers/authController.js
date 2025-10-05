@@ -810,7 +810,14 @@ const sendOTP = async (req, res) => {
         return sendUnauthorized(res, 'Invalid credentials. Admin not found or account deactivated.');
       }
     } 
-    else if (normalizedRole === 'nonteaching' || normalizedRole === 'non_teaching') {
+    else if (normalizedRole === 'nonteaching' || normalizedRole === 'non_teaching' || 
+             normalizedRole === 'hostel_warden' || normalizedRole === 'attendant' || 
+             normalizedRole === 'security_guard' || normalizedRole === 'maintenance' || 
+             normalizedRole === 'cleaning' || normalizedRole === 'security_head' || 
+             normalizedRole === 'caretaker' || normalizedRole === 'administrative_staff' || 
+             normalizedRole === 'clerk' || normalizedRole === 'receptionist' || 
+             normalizedRole === 'maintenance_staff' || normalizedRole === 'cleaner' || 
+             normalizedRole === 'other') {
       if (!teacherId) {
         return sendError(res, 400, 'Staff ID is required for non-teaching staff login');
       }
@@ -925,7 +932,14 @@ const verifyOTP = async (req, res) => {
       }).select('-__v');
       userType = 'Admin';
     } 
-    else if (normalizedRole === 'nonteaching' || normalizedRole === 'non_teaching') {
+    else if (normalizedRole === 'nonteaching' || normalizedRole === 'non_teaching' || 
+             normalizedRole === 'hostel_warden' || normalizedRole === 'attendant' || 
+             normalizedRole === 'security_guard' || normalizedRole === 'maintenance' || 
+             normalizedRole === 'cleaning' || normalizedRole === 'security_head' || 
+             normalizedRole === 'caretaker' || normalizedRole === 'administrative_staff' || 
+             normalizedRole === 'clerk' || normalizedRole === 'receptionist' || 
+             normalizedRole === 'maintenance_staff' || normalizedRole === 'cleaner' || 
+             normalizedRole === 'other') {
       user = await NonTeachingStaff.findOne({ 
         email: email.toLowerCase(),
         isActive: true 
@@ -1010,7 +1024,23 @@ const verifyOTP = async (req, res) => {
     
     // For non-teaching staff, use their role
     if (userType === 'NonTeachingStaff') {
-      frontendRole = user.role.toLowerCase().replace(' ', '_'); // hostel_warden, security_head, etc.
+      // Map database role names to frontend role names
+      const roleMapping = {
+        'Hostel Warden': 'hostel_warden',
+        'Security Head': 'security_head',
+        'Security Guard': 'security_guard',
+        'Guard': 'security_guard', // Handle case where database stores 'Guard' instead of 'Security Guard'
+        'Attendant': 'attendant',
+        'Caretaker': 'caretaker',
+        'Administrative Staff': 'administrative_staff',
+        'Clerk': 'clerk',
+        'Receptionist': 'receptionist',
+        'Maintenance Staff': 'maintenance_staff',
+        'Cleaner': 'cleaner',
+        'Other': 'other'
+      };
+      
+      frontendRole = roleMapping[user.role] || user.role.toLowerCase().replace(' ', '_');
     }
 
     // Return success response with token and user info

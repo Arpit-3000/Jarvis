@@ -41,8 +41,11 @@ const validateOTPVerification = [
     .withMessage('OTP must be a 6-digit number'),
   body('role')
     .optional()
-    .isIn(['student', 'teacher', 'admin', 'nonteaching', 'non_teaching'])
-    .withMessage('Role must be one of: student, teacher, admin, nonteaching, non_teaching'),
+    .isIn(['student', 'teacher', 'admin', 'nonteaching', 'non_teaching', 
+           'hostel_warden', 'attendant', 'security_guard', 'maintenance', 
+           'cleaning', 'security_head', 'caretaker', 'administrative_staff', 
+           'clerk', 'receptionist', 'maintenance_staff', 'cleaner', 'other'])
+    .withMessage('Role must be a valid role'),
   handleValidationErrors
 ];
 
