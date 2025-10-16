@@ -18,7 +18,11 @@ const GateLogSchema = new mongoose.Schema({
   expiresAt: { type: Date, required: true },
   scannedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'NonTeachingStaff' }, // guard
   scannedAt: { type: Date },
-  remarks: { type: String, maxlength: 200 } // Optional remarks from guard
+  remarks: { type: String, maxlength: 200 }, // Optional remarks from guard
+  // Return tracking fields (for when student comes back IN)
+  returnTime: { type: Date }, // When student returned
+  returnScannedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'NonTeachingStaff' }, // Guard who processed return
+  returnRemarks: { type: String, maxlength: 200 } // Optional remarks for return
 }, { timestamps: true });
 
 // Index for faster queries

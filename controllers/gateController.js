@@ -57,19 +57,20 @@ exports.cleanupAllExpiredPendingLogs = async () => {
 /**
  * Generate QR Pass for Gate Entry/Exit
  * Student generates a QR code with destination
+ * Only allows QR generation when student is IN (going out)
  */
 exports.generatePass = async (req, res) => {
   try {
     const { destination } = req.body;
     const student = req.student; // From auth middleware
 
-    // Validate destination
-    if (!destination || destination.trim().length === 0) {
-      return sendError(res, 400, 'Destination is required');
+    // Validate destination only for exit (not required for entry)
+    if (student.currentStatus === 'in' && (!destination || destination.trim().length === 0)) {
+      return sendError(res, 400, 'Destination is required for exit');
     }
 
-    // Clean up any expired pending logs first
-    await cleanupExpiredPendingLogs(student._id);
+     // Clean up any expired pending logs first
+     await cleanupExpiredPendingLogs(student._id);
 
     // Check if student has any remaining pending pass
     const existingPending = await GateLog.findOne({ 
@@ -95,7 +96,7 @@ exports.generatePass = async (req, res) => {
       department: student.department,
       year: student.year,
       action: action,
-      destination: destination.trim(),
+      destination: destination ? destination.trim() : 'Campus Entry',
       issuedAt: Date.now()
     };
 
@@ -113,7 +114,7 @@ exports.generatePass = async (req, res) => {
         department: student.department,
         year: student.year
       },
-      destination: destination.trim(),
+      destination: destination ? destination.trim() : 'Campus Entry',
       action: action,
       status: 'pending',
       qrToken: token,
@@ -133,7 +134,7 @@ exports.generatePass = async (req, res) => {
       type: 'image/png'
     });
 
-    sendSuccess(res, 200, 'Gate pass generated successfully', {
+    sendSuccess(res, 200, `QR code generated successfully for ${action}`, {
       gateLogId: gateLog._id,
       qrCode: qrCodeDataUrl,
       token: token, // Include token for testing
@@ -145,7 +146,8 @@ exports.generatePass = async (req, res) => {
         name: student.name,
         rollNumber: student.rollNumber,
         currentStatus: student.currentStatus
-      }
+      },
+      message: `QR code valid for ${QR_EXPIRE_MINUTES} minutes. Show this to the guard for ${action === 'exit' ? 'exiting' : 'entering'} campus.`
     });
 
   } catch (error) {
@@ -157,6 +159,7 @@ exports.generatePass = async (req, res) => {
 /**
  * Scan QR Pass (Guard Function)
  * Guard scans the QR code and processes the gate pass
+ * Implements Cases A, B, and C as per new requirements
  */
 exports.scanPass = async (req, res) => {
   try {
@@ -183,15 +186,15 @@ exports.scanPass = async (req, res) => {
       decoded = jwt.verify(actualToken, JWT_SECRET);
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
-        return sendError(res, 400, 'QR pass has expired. Please generate a new one.');
+        return sendError(res, 400, '❌ QR Expired.');
       }
-      return sendError(res, 400, 'Invalid QR pass');
+      return sendError(res, 400, '❌ Invalid QR.');
     }
 
     // Find the gate log
     const gateLog = await GateLog.findOne({ qrToken: actualToken });
     if (!gateLog) {
-      return sendError(res, 404, 'Gate pass not found');
+      return sendError(res, 404, '❌ Invalid QR.');
     }
 
     // Check if already processed
@@ -215,49 +218,106 @@ exports.scanPass = async (req, res) => {
     // Get student details
     const student = await Student.findById(gateLog.studentId);
     if (!student) {
-      return sendError(res, 404, 'Student not found');
+      return sendError(res, 404, '❌ Invalid QR.');
     }
 
-    // Validate action consistency
-    if ((gateLog.action === 'exit' && student.currentStatus === 'out') ||
-        (gateLog.action === 'enter' && student.currentStatus === 'in')) {
-      return sendError(res, 400, `Student is already ${student.currentStatus}. Please contact admin for manual override.`);
-    }
-
-    // Process the gate pass
-    gateLog.status = 'processed';
-    gateLog.scannedBy = guard._id;
-    gateLog.scannedAt = new Date();
-    if (actualRemarks && actualRemarks.trim().length > 0) {
-      gateLog.remarks = actualRemarks.trim();
-    }
-    await gateLog.save();
-
-    // Update student status
-    student.currentStatus = gateLog.action === 'exit' ? 'out' : 'in';
-    student.lastGateLog = gateLog._id;
-    await student.save();
-
-    sendSuccess(res, 200, 'Gate pass processed successfully', {
-      student: {
-        id: student._id,
-        name: student.name,
-        rollNumber: student.rollNumber,
-        studentId: student.studentId,
-        department: student.department,
-        year: student.year,
-        phone: student.phone,
-        currentStatus: student.currentStatus
-      },
-      gateLog: {
-        id: gateLog._id,
-        action: gateLog.action,
-        destination: gateLog.destination,
-        processedAt: gateLog.scannedAt,
-        processedBy: guard.name,
-        remarks: gateLog.remarks
-      }
+    const currentTime = new Date();
+    const timeString = currentTime.toLocaleString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
+
+    // Case A: Student is currently IN and QR is for EXIT
+    if (student.currentStatus === 'in' && gateLog.action === 'exit') {
+      // Update the gate log with current time and mark as processed
+      gateLog.status = 'processed';
+      gateLog.scannedBy = guard._id;
+      gateLog.scannedAt = currentTime;
+      if (remarks) {
+        gateLog.remarks = remarks.trim();
+      }
+      await gateLog.save();
+
+      // Update student status to OUT
+      student.currentStatus = 'out';
+      student.lastGateLog = gateLog._id;
+      await student.save();
+
+      return sendSuccess(res, 200, `✅ ${student.name} went out at ${timeString} for ${gateLog.destination}.`, {
+        case: 'A',
+        action: 'exit',
+        student: {
+          id: student._id,
+          name: student.name,
+          rollNumber: student.rollNumber,
+          studentId: student.studentId,
+          department: student.department,
+          year: student.year,
+          phone: student.phone,
+          currentStatus: student.currentStatus
+        },
+        gateLog: {
+          id: gateLog._id,
+          action: gateLog.action,
+          destination: gateLog.destination,
+          processedAt: gateLog.scannedAt,
+          processedBy: guard.name,
+          remarks: gateLog.remarks
+        }
+      });
+    }
+
+     // Case B: Student is currently OUT and QR is for ENTER
+     if (student.currentStatus === 'out' && gateLog.action === 'enter') {
+       // Process the gate pass
+       gateLog.status = 'processed';
+       gateLog.scannedBy = guard._id;
+       gateLog.scannedAt = currentTime;
+       if (actualRemarks && actualRemarks.trim().length > 0) {
+         gateLog.remarks = actualRemarks.trim();
+       }
+       await gateLog.save();
+
+       // Update student status to IN
+       student.currentStatus = 'in';
+       student.lastGateLog = gateLog._id;
+       await student.save();
+
+       return sendSuccess(res, 200, `✅ ${student.name} entered at ${timeString} from ${gateLog.destination}.`, {
+         case: 'B',
+         action: 'enter',
+         student: {
+           id: student._id,
+           name: student.name,
+           rollNumber: student.rollNumber,
+           studentId: student.studentId,
+           department: student.department,
+           year: student.year,
+           phone: student.phone,
+           currentStatus: student.currentStatus
+         },
+         gateLog: {
+           id: gateLog._id,
+           action: gateLog.action,
+           destination: gateLog.destination,
+           processedAt: gateLog.scannedAt,
+           processedBy: guard.name,
+           remarks: gateLog.remarks
+         }
+       });
+     }
+
+     // Case C: Status mismatch - QR action doesn't match student status
+     if ((student.currentStatus === 'in' && gateLog.action === 'enter') || 
+         (student.currentStatus === 'out' && gateLog.action === 'exit')) {
+       return sendError(res, 400, `❌ Status mismatch. Student is ${student.currentStatus} but QR is for ${gateLog.action}.`);
+     }
+
+     // This should not happen based on our logic, but just in case
+     return sendError(res, 400, '❌ Invalid QR.');
 
   } catch (error) {
     console.error('Scan pass error:', error);
