@@ -127,6 +127,10 @@ const teacherSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isHostelWarden: {
+    type: Boolean,
+    default: false
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Admin',

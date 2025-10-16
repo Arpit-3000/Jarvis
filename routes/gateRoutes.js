@@ -49,4 +49,9 @@ router.get('/logs', adminAuth, gateController.getGateLogs);
 // @access  Private (Admin)
 router.post('/manual-override', adminAuth, gateController.manualOverride);
 
+// @route   GET /api/gate/outside-without-qr
+// @desc    Get students outside campus who haven't generated QR today
+// @access  Private (Admin)
+router.get('/outside-without-qr', adminAuth, gateController.getStudentsOutsideWithoutQR);
+
 module.exports = router;

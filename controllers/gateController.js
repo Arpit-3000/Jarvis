@@ -8,6 +8,53 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret';
 const QR_EXPIRE_MINUTES = parseInt(process.env.QR_EXPIRE_MINUTES || '5', 10);
 
 /**
+ * Clean up expired pending gate logs
+ * This function removes expired pending entries to allow new QR generation
+ */
+const cleanupExpiredPendingLogs = async (studentId) => {
+  try {
+    const now = new Date();
+    const result = await GateLog.deleteMany({
+      studentId: studentId,
+      status: 'pending',
+      expiresAt: { $lt: now }
+    });
+    
+    if (result.deletedCount > 0) {
+      console.log(`Cleaned up ${result.deletedCount} expired pending gate logs for student ${studentId}`);
+    }
+    
+    return result.deletedCount;
+  } catch (error) {
+    console.error('Error cleaning up expired pending logs:', error);
+    return 0;
+  }
+};
+
+/**
+ * Global cleanup of all expired pending gate logs
+ * This function can be called periodically to clean up all expired entries
+ */
+exports.cleanupAllExpiredPendingLogs = async () => {
+  try {
+    const now = new Date();
+    const result = await GateLog.deleteMany({
+      status: 'pending',
+      expiresAt: { $lt: now }
+    });
+    
+    if (result.deletedCount > 0) {
+      console.log(`Global cleanup: Removed ${result.deletedCount} expired pending gate logs`);
+    }
+    
+    return result.deletedCount;
+  } catch (error) {
+    console.error('Error in global cleanup of expired pending logs:', error);
+    return 0;
+  }
+};
+
+/**
  * Generate QR Pass for Gate Entry/Exit
  * Student generates a QR code with destination
  */
@@ -21,7 +68,10 @@ exports.generatePass = async (req, res) => {
       return sendError(res, 400, 'Destination is required');
     }
 
-    // Check if student has any pending pass
+    // Clean up any expired pending logs first
+    await cleanupExpiredPendingLogs(student._id);
+
+    // Check if student has any remaining pending pass
     const existingPending = await GateLog.findOne({ 
       studentId: student._id, 
       status: 'pending' 
@@ -113,14 +163,24 @@ exports.scanPass = async (req, res) => {
     const { token, remarks } = req.body;
     const guard = req.staff; // From nonTeachingAuth middleware
 
-    if (!token) {
+    // Handle case where token might be sent as remarks (frontend issue)
+    let actualToken = token;
+    let actualRemarks = remarks;
+    
+    // If token is not provided but remarks looks like a JWT token, swap them
+    if (!token && remarks && remarks.length > 100 && remarks.includes('.')) {
+      actualToken = remarks;
+      actualRemarks = '';
+    }
+
+    if (!actualToken) {
       return sendError(res, 400, 'QR token is required');
     }
 
     // Verify JWT token
     let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      decoded = jwt.verify(actualToken, JWT_SECRET);
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
         return sendError(res, 400, 'QR pass has expired. Please generate a new one.');
@@ -129,7 +189,7 @@ exports.scanPass = async (req, res) => {
     }
 
     // Find the gate log
-    const gateLog = await GateLog.findOne({ qrToken: token });
+    const gateLog = await GateLog.findOne({ qrToken: actualToken });
     if (!gateLog) {
       return sendError(res, 404, 'Gate pass not found');
     }
@@ -141,9 +201,15 @@ exports.scanPass = async (req, res) => {
 
     // Check if expired
     if (gateLog.expiresAt < new Date()) {
-      gateLog.status = 'expired';
-      await gateLog.save();
-      return sendError(res, 400, 'Gate pass has expired');
+      // Delete expired pending entries to allow regeneration
+      if (gateLog.status === 'pending') {
+        await GateLog.findByIdAndDelete(gateLog._id);
+        return sendError(res, 400, 'Gate pass has expired. Please generate a new one.');
+      } else {
+        gateLog.status = 'expired';
+        await gateLog.save();
+        return sendError(res, 400, 'Gate pass has expired');
+      }
     }
 
     // Get student details
@@ -162,8 +228,8 @@ exports.scanPass = async (req, res) => {
     gateLog.status = 'processed';
     gateLog.scannedBy = guard._id;
     gateLog.scannedAt = new Date();
-    if (remarks) {
-      gateLog.remarks = remarks.trim();
+    if (actualRemarks && actualRemarks.trim().length > 0) {
+      gateLog.remarks = actualRemarks.trim();
     }
     await gateLog.save();
 
@@ -364,6 +430,77 @@ exports.getCurrentStatus = async (req, res) => {
   } catch (error) {
     console.error('Get current status error:', error);
     sendError(res, 500, 'Server error while fetching current status');
+  }
+};
+
+/**
+ * Get Students Outside Campus Without QR (Admin Function)
+ * Get students who are outside campus and haven't generated any QR code
+ */
+exports.getStudentsOutsideWithoutQR = async (req, res) => {
+  try {
+    const { page = 1, limit = 50, department, year } = req.query;
+
+    // Build filter for students who are outside campus
+    const filter = { currentStatus: 'out' };
+    if (department) filter.department = department;
+    if (year) filter.year = year;
+
+    // Get students who are outside campus
+    const students = await Student.find(filter)
+      .select('name rollNumber studentId department year phone currentStatus lastGateLog')
+      .populate('lastGateLog', 'action destination issuedAt status')
+      .sort({ lastGateLog: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    // Filter students who haven't generated any ENTRY QR code today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const studentsWithoutQR = [];
+    
+    for (const student of students) {
+      // Check if student has any ENTRY gate log today (action: 'enter')
+      const todayEntryGateLog = await GateLog.findOne({
+        studentId: student._id,
+        action: 'enter',  // Only check for entry QR codes
+        issuedAt: { $gte: today }
+      });
+
+      // If no entry gate log today, add to list
+      if (!todayEntryGateLog) {
+        studentsWithoutQR.push({
+          id: student._id,
+          name: student.name,
+          rollNumber: student.rollNumber,
+          studentId: student.studentId,
+          department: student.department,
+          year: student.year,
+          phone: student.phone,
+          currentStatus: student.currentStatus,
+          lastGateLog: student.lastGateLog,
+          hasGeneratedEntryQRToday: false
+        });
+      }
+    }
+
+    const total = studentsWithoutQR.length;
+
+    sendSuccess(res, 200, 'Students outside campus without entry QR today retrieved successfully', {
+      students: studentsWithoutQR,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / limit),
+        totalStudents: total,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1
+      }
+    });
+
+  } catch (error) {
+    console.error('Get students outside without QR error:', error);
+    sendError(res, 500, 'Server error while fetching students outside campus without QR');
   }
 };
 

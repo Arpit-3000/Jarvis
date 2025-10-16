@@ -12,6 +12,7 @@ const accountRoutes = require('./routes/account');
 const leaveFormRoutes = require('./routes/leaveForm');
 const nonTeachingStaffRoutes = require('./routes/nonTeachingStaff');
 const gateRoutes = require('./routes/gateRoutes');
+const { startCleanupScheduler } = require('./utils/cleanupScheduler');
 
 const app = express();
 
@@ -77,6 +78,9 @@ const server = app.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
   console.log(`📊 Environment: ${config.NODE_ENV}`);
   console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+  
+  // Start the cleanup scheduler
+  startCleanupScheduler();
 });
 
 // Handle port already in use error
