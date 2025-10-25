@@ -6,11 +6,21 @@ const config = require('../config/env');
  */
 const createTransporter = () => {
   return nodemailer.createTransport({
-    service: 'gmail', // Use Gmail service
+    host: config.EMAIL_HOST || 'smtp.gmail.com',
+    port: config.EMAIL_PORT || 587,
+    secure: false, // true for 465, false for other ports
+    requireTLS: true,
     auth: {
       user: config.EMAIL_USER,
       pass: config.EMAIL_PASS
-    }
+    },
+    tls: {
+      // Do not fail on invalid certs
+      rejectUnauthorized: false
+    },
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 10000,   // 10 seconds
+    socketTimeout: 30000      // 30 seconds
   });
 };
 
