@@ -19,6 +19,17 @@ router.post('/verify-otp', validateOTPVerification, verifyOTP);
 // @access  Public
 router.post('/verify-token', verifyToken);
 
+// @route   GET /api/auth/test-cors
+// @desc    Test CORS configuration
+// @access  Public
+router.get('/test-cors', (req, res) => {
+  res.json({
+    success: true,
+    message: 'CORS is working!',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // @route   POST /api/auth/test-email
 // @desc    Test email sending (for debugging)
 // @access  Public

@@ -19,10 +19,25 @@ const app = express();
 // Connect to database
 connectDB();
 
+// CORS Configuration
+const corsOptions = {
+  origin: [
+    'https://student-portal-one-ochre.vercel.app',
+    'http://localhost:3000'  // For local development
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
 
 // Routes
 app.use('/api/auth', authRoutes);
