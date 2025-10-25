@@ -18,9 +18,9 @@ const createTransporter = () => {
       // Do not fail on invalid certs
       rejectUnauthorized: false
     },
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000,   // 10 seconds
-    socketTimeout: 30000      // 30 seconds
+    connectionTimeout: 1000000, // 10 seconds
+    greetingTimeout: 1000000,   // 10 seconds
+    socketTimeout: 3000000      // 30 seconds
   });
 };
 
